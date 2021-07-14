@@ -1,0 +1,55 @@
+platform: 10.11.92.34
+
+clone:
+  git:
+    image: registry.cn-qingdao.aliyuncs.com/wod/devops-git:1.0
+    pull: true
+    dns: 223.5.5.5
+
+pipeline:
+  read-cache:
+    image: registry.cn-qingdao.aliyuncs.com/wod/devops-cache:1.0
+    restore: true
+    mount:
+      - ./node_modules
+    volumes:
+      - /data/cache:/cache
+  build:
+    image: registry.cn-qingdao.aliyuncs.com/wod/devops-node:12.18.0-stretch
+    dns: 223.5.5.5
+    volumes:
+      - /data/cache/yarn:/usr/local/share/.cache/yarn
+    commands:
+      - yarn install
+      - yarn run build
+  # store-cache:
+  #   image: registry.cn-qingdao.aliyuncs.com/wod/devops-cache:1.0
+  #   rebuild: true
+  #   mount:
+  #     - ./node_modules
+  #   volumes:
+  #     - /data/cache:/cache
+  docker-master:
+    image: registry.cn-qingdao.aliyuncs.com/wod/devops-docker:1.0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    base: registry.cn-qingdao.aliyuncs.com/wod-devops/ui-base:2.0-datashop
+    repo: tongliao/zj-hl
+    version: v1.0.2
+    dockerfile: build/dockerfile
+    channel: alpha
+    registry: "hub.wodcloud.com"
+    secrets:
+      - source: REGISTRY_USER
+        target: REGISTRY_USER
+      - source: REGISTRY_PASSWORD
+        target: REGISTRY_PASSWORD
+    when:
+      branch: [master,dev]
+  deploy:
+    image: registry.cn-qingdao.aliyuncs.com/wod/devops-kubernetes:1.0
+    namespace: tongliao
+    deployment: zj-hl
+    container: zj-hl
+    when: 
+      branch: [master,dev]
